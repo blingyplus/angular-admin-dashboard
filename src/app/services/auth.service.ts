@@ -1,7 +1,14 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { BehaviorSubject, Observable } from 'rxjs';
-import { tap } from 'rxjs/operators';
+import { BehaviorSubject, Observable, tap } from 'rxjs';
+
+interface LoginResponse {
+  token: string;
+  user: {
+    name: string;
+    email: string;
+  };
+}
 
 @Injectable({
   providedIn: 'root',
@@ -12,16 +19,18 @@ export class AuthService {
   public currentUser = this.currentUserSubject.asObservable();
 
   constructor(private http: HttpClient) {
-    const token = localStorage.getItem('token');
-    if (token) {
-      this.currentUserSubject.next(
-        JSON.parse(localStorage.getItem('user') || '{}')
-      );
+    // Only access localStorage if we're in the browser
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('token');
+      const user = localStorage.getItem('user');
+      if (token && user) {
+        this.currentUserSubject.next(JSON.parse(user));
+      }
     }
   }
 
   private getHeaders(): HttpHeaders {
-    const token = localStorage.getItem('token');
+    const token = this.getToken();
     return new HttpHeaders({
       'Content-Type': 'application/json',
       Authorization: `Bearer ${token}`,
@@ -36,19 +45,30 @@ export class AuthService {
     return this.http.post(`${this.apiUrl}/signup`, userData);
   }
 
-  login(credentials: { email: string; password: string }): Observable<any> {
-    return this.http.post(`${this.apiUrl}/login`, credentials).pipe(
-      tap((response: any) => {
-        localStorage.setItem('token', response.token);
-        localStorage.setItem('user', JSON.stringify(response.user));
-        this.currentUserSubject.next(response.user);
-      })
-    );
+  login(credentials: {
+    email: string;
+    password: string;
+  }): Observable<LoginResponse> {
+    return this.http
+      .post<LoginResponse>(`${this.apiUrl}/login`, credentials)
+      .pipe(
+        tap((response) => {
+          if (response.token) {
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('token', response.token);
+              localStorage.setItem('user', JSON.stringify(response.user));
+            }
+            this.currentUserSubject.next(response.user);
+          }
+        })
+      );
   }
 
   logout(): void {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+    }
     this.currentUserSubject.next(null);
   }
 
@@ -58,7 +78,17 @@ export class AuthService {
     });
   }
 
+  getToken(): string | null {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('token');
+    }
+    return null;
+  }
+
   isLoggedIn(): boolean {
-    return !!localStorage.getItem('token');
+    if (typeof window !== 'undefined') {
+      return !!localStorage.getItem('token');
+    }
+    return false;
   }
 }
