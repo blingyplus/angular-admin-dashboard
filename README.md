@@ -29,7 +29,7 @@ A modern admin dashboard built with Angular, featuring user authentication, prot
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
+git clone https://github.com/blingyplus/angular-admin-dashboard.git
 cd angular-admin-dashboard
 ```
 
