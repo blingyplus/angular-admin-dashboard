@@ -1,27 +1,106 @@
-# AngularAdminDashboard
+# Angular Admin Dashboard
 
-This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 17.3.16.
+A modern admin dashboard built with Angular, featuring user authentication, protected routes, and a clean UI powered by Tailwind CSS.
 
-## Development server
+## Features
 
-Run `ng serve` for a dev server. Navigate to `http://localhost:4200/`. The application will automatically reload if you change any of the source files.
+- User Authentication (Login/Signup)
+- Protected Routes with Guards
+- JWT-based Authentication
+- MongoDB Integration
+- Responsive Design with Tailwind CSS
+- Modern Angular Architecture (Standalone Components)
 
-## Code scaffolding
+## Tech Stack
 
-Run `ng generate component component-name` to generate a new component. You can also use `ng generate directive|pipe|service|class|guard|interface|enum|module`.
+- **Frontend**: Angular 17
+- **Backend**: Node.js, Express
+- **Database**: MongoDB
+- **Styling**: Tailwind CSS
+- **Authentication**: JWT
 
-## Build
+## Prerequisites
 
-Run `ng build` to build the project. The build artifacts will be stored in the `dist/` directory.
+- Node.js (v18 or higher)
+- MongoDB Atlas account or local MongoDB instance
+- Angular CLI (`npm install -g @angular/cli`)
 
-## Running unit tests
+## Installation
 
-Run `ng test` to execute the unit tests via [Karma](https://karma-runner.github.io).
+1. Clone the repository:
+```bash
+git clone <repository-url>
+cd angular-admin-dashboard
+```
 
-## Running end-to-end tests
+2. Install dependencies:
+```bash
+npm install
+```
 
-Run `ng e2e` to execute the end-to-end tests via a platform of your choice. To use this command, you need to first add a package that implements end-to-end testing capabilities.
+3. Create a `.env` file in the root directory with the following variables:
+```
+MONGODB_URI=your_mongodb_connection_string
+JWT_SECRET=your_jwt_secret_key
+PORT=4000
+```
 
-## Further help
+## Development
 
-To get more help on the Angular CLI use `ng help` or go check out the [Angular CLI Overview and Command Reference](https://angular.io/cli) page.
+1. Start the backend server:
+```bash
+npm run build:server
+npm run server
+```
+
+2. In a separate terminal, start the Angular development server:
+```bash
+npm start
+```
+
+3. Open your browser and navigate to `http://localhost:4200`
+
+## API Endpoints
+
+- `POST /api/signup` - Register a new user
+- `POST /api/login` - Authenticate a user
+- `GET /api/profile` - Get user profile (requires authentication)
+
+## Project Structure
+
+```
+src/
+├── app/
+│   ├── components/
+│   │   ├── login/
+│   │   ├── signup/
+│   │   └── dashboard/
+│   ├── guards/
+│   │   ├── auth.guard.ts
+│   │   └── no-auth.guard.ts
+│   ├── services/
+│   │   └── auth.service.ts
+│   └── app.routes.ts
+├── styles.css
+└── main.ts
+```
+
+## Authentication Flow
+
+1. User signs up or logs in
+2. JWT token is stored in localStorage
+3. Protected routes check for valid token
+4. Token is included in API requests
+5. Server validates token for protected endpoints
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
