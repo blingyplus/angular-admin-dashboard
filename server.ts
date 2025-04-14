@@ -1,56 +1,114 @@
-import { APP_BASE_HREF } from '@angular/common';
-import { CommonEngine } from '@angular/ssr';
-import express from 'express';
-import { fileURLToPath } from 'node:url';
-import { dirname, join, resolve } from 'node:path';
-import bootstrap from './src/main.server';
+import express, { Request } from 'express';
+import mongoose from 'mongoose';
+import cors from 'cors';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+import dotenv from 'dotenv';
 
-// The Express app is exported so that it can be used by serverless Functions.
-export function app(): express.Express {
-  const server = express();
-  const serverDistFolder = dirname(fileURLToPath(import.meta.url));
-  const browserDistFolder = resolve(serverDistFolder, '../browser');
-  const indexHtml = join(serverDistFolder, 'index.server.html');
+// Load environment variables
+dotenv.config();
 
-  const commonEngine = new CommonEngine();
-
-  server.set('view engine', 'html');
-  server.set('views', browserDistFolder);
-
-  // Example Express Rest API endpoints
-  // server.get('/api/**', (req, res) => { });
-  // Serve static files from /browser
-  server.get('*.*', express.static(browserDistFolder, {
-    maxAge: '1y'
-  }));
-
-  // All regular routes use the Angular engine
-  server.get('*', (req, res, next) => {
-    const { protocol, originalUrl, baseUrl, headers } = req;
-
-    commonEngine
-      .render({
-        bootstrap,
-        documentFilePath: indexHtml,
-        url: `${protocol}://${headers.host}${originalUrl}`,
-        publicPath: browserDistFolder,
-        providers: [{ provide: APP_BASE_HREF, useValue: baseUrl }],
-      })
-      .then((html) => res.send(html))
-      .catch((err) => next(err));
-  });
-
-  return server;
+// Extend Express Request type
+interface AuthenticatedRequest extends Request {
+  user?: {
+    userId: string;
+  };
 }
 
-function run(): void {
-  const port = process.env['PORT'] || 4000;
+// Create Express app
+const app = express();
 
-  // Start up the Node server
-  const server = app();
-  server.listen(port, () => {
-    console.log(`Node Express server listening on http://localhost:${port}`);
+// Enable CORS and JSON parsing
+app.use(cors());
+app.use(express.json());
+
+// MongoDB Connection
+mongoose
+  .connect(process.env['MONGODB_URI'] || '')
+  .then(() => console.log('Connected to MongoDB'))
+  .catch((err) => console.error('MongoDB connection error:', err));
+
+// User Schema
+const userSchema = new mongoose.Schema({
+  email: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+  name: { type: String, required: true },
+});
+
+const User = mongoose.model('User', userSchema);
+
+// Middleware to verify JWT
+const authenticateToken = (req: AuthenticatedRequest, res: any, next: any) => {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader && authHeader.split(' ')[1];
+
+  if (!token) return res.sendStatus(401);
+
+  jwt.verify(token, process.env['JWT_SECRET'] || '', (err: any, user: any) => {
+    if (err) return res.sendStatus(403);
+    req.user = user;
+    next();
   });
-}
+};
 
-run();
+// Routes
+app.post('/api/signup', async (req, res) => {
+  try {
+    const { email, password, name } = req.body;
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const user = new User({
+      email,
+      password: hashedPassword,
+      name,
+    });
+
+    await user.save();
+    res.status(201).json({ message: 'User created successfully' });
+  } catch (error) {
+    res.status(400).json({ error: 'Error creating user' });
+  }
+});
+
+app.post('/api/login', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+    const user = await User.findOne({ email });
+
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const validPassword = await bcrypt.compare(password, user.password);
+    if (!validPassword) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+
+    const token = jwt.sign(
+      { userId: user._id },
+      process.env['JWT_SECRET'] || ''
+    );
+    return res.json({ token, user: { name: user.name, email: user.email } });
+  } catch (error) {
+    return res.status(400).json({ error: 'Error logging in' });
+  }
+});
+
+app.get(
+  '/api/profile',
+  authenticateToken,
+  async (req: AuthenticatedRequest, res) => {
+    try {
+      const user = await User.findById(req.user?.userId).select('-password');
+      res.json(user);
+    } catch (error) {
+      res.status(400).json({ error: 'Error fetching profile' });
+    }
+  }
+);
+
+// Start server
+const port = process.env['PORT'] || 4000;
+app.listen(port, () => {
+  console.log(`Server listening on http://localhost:${port}`);
+});
